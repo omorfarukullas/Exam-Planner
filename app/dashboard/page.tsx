@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import { format, differenceInDays, startOfDay } from 'date-fns'
+import { calculateStreak } from '@/utils/streaks'
 
 const EXAM_TYPE_META: Record<string, { label: string; emoji: string; color: string }> = {
   midterm:    { label: 'Mid-Term',   emoji: '📘', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -25,6 +26,39 @@ export default async function DashboardPage() {
   const upcoming = (subjects || []).filter(s => differenceInDays(startOfDay(new Date(s.exam_date + 'T00:00:00')), today) >= 0)
   const critical = upcoming.filter(s => differenceInDays(startOfDay(new Date(s.exam_date + 'T00:00:00')), today) <= 2)
   const nextExam = upcoming[0]
+
+  // Streaks
+  const { data: sessions } = await supabase
+    .from('study_sessions')
+    .select('date, minutes_logged')
+    .eq('user_id', user.id)
+  
+  const currentStreak = calculateStreak(sessions || [])
+
+  // Shared Courses logic
+  const { data: friendships } = await supabase
+    .from('friendships')
+    .select(`
+      user_id,
+      friend_id,
+      sender:profiles!user_id(id, full_name, avatar_url),
+      receiver:profiles!friend_id(id, full_name, avatar_url)
+    `)
+    .eq('status', 'accepted')
+    .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`) as any
+
+  const friends = (friendships || []).map((f: any) => {
+    const profile = f.user_id === user.id ? f.receiver : f.sender
+    return Array.isArray(profile) ? profile[0] : profile
+  })
+  const friendIds = friends.map((f: any) => f.id)
+
+  let friendSubjects: any[] = []
+  if (friendIds.length > 0) {
+    // RLS will ensure we only get matching subjects
+    const { data } = await supabase.from('subjects').select('*').in('user_id', friendIds)
+    if (data) friendSubjects = data
+  }
 
   if (!subjects || subjects.length === 0) {
     return (
@@ -72,7 +106,7 @@ export default async function DashboardPage() {
         {[
           { label: 'Total Subjects', value: subjects.length, icon: '📚', color: 'bg-indigo-50 border-indigo-100', text: 'text-indigo-700' },
           { label: 'Upcoming', value: upcoming.length, icon: '⏳', color: 'bg-blue-50 border-blue-100', text: 'text-blue-700' },
-          { label: 'Critical (≤2d)', value: critical.length, icon: '🚨', color: 'bg-red-50 border-red-100', text: 'text-red-700' },
+          { label: 'Current Streak', value: `${currentStreak}🔥`, icon: '🎯', color: 'bg-orange-50 border-orange-100', text: 'text-orange-600' },
           {
             label: 'Next Exam In',
             value: nextExam ? `${Math.max(0, differenceInDays(startOfDay(new Date(nextExam.exam_date + 'T00:00:00')), today))}d` : '—',
@@ -128,6 +162,8 @@ export default async function DashboardPage() {
 
           const progressWidth = isPast ? 100 : Math.max(4, Math.min(96, 100 - (daysLeft / 30) * 100))
 
+          const sharedBy = friendSubjects.filter(fs => fs.name.toLowerCase() === subject.name.toLowerCase())
+
           return (
             <Link href={`/dashboard/edit/${subject.id}`} key={subject.id} className="block group">
               <div className={`relative h-full bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 card-hover ${isPast ? 'opacity-60' : ''}`}>
@@ -180,6 +216,27 @@ export default async function DashboardPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <span className="line-clamp-1">{subject.syllabus_text}</span>
+                      </div>
+                    )}
+
+                    {sharedBy.length > 0 && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex -space-x-2">
+                          {sharedBy.slice(0, 3).map((fs, i) => {
+                            const friend = friends.find((f: any) => f.id === fs.user_id)
+                            if (!friend) return null
+                            return (
+                              <div key={fs.id} className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 z-10" title={friend.full_name} style={{ zIndex: 10 - i }}>
+                                {friend.avatar_url ? <img src={friend.avatar_url} className="w-full h-full rounded-full" alt="" /> : friend.full_name?.charAt(0) || '?'}
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {sharedBy.length === 1 
+                            ? `${friends.find((f: any) => f.id === sharedBy[0].user_id)?.full_name?.split(' ')[0]} is also taking this` 
+                            : `${sharedBy.length} friends are taking this`}
+                        </span>
                       </div>
                     )}
                   </div>
