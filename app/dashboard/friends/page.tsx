@@ -69,10 +69,25 @@ export default async function FriendsPage() {
     })
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-extrabold text-gray-900">Friends & Study Groups</h1>
-        <p className="text-gray-500 mt-1">Add friends to see shared exams and compare study streaks.</p>
+    <div className="max-w-4xl mx-auto space-y-6 pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Friends</h1>
+          <p className="text-muted-foreground mt-1">Connect with friends and check the leaderboard.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-6">
+        <div className="card-simple p-4 flex-1 text-center sm:text-left sm:flex sm:items-center sm:justify-between">
+          <span className="text-sm font-medium text-muted-foreground block sm:inline">Active Friends</span>
+          <span className="text-2xl font-bold">{friends.length}</span>
+        </div>
+        {pendingIncoming.length > 0 && (
+          <div className="card-simple p-4 flex-1 text-center sm:text-left sm:flex sm:items-center sm:justify-between border-primary/20 bg-primary/5">
+            <span className="text-sm font-medium text-primary block sm:inline">Pending Requests</span>
+            <span className="text-2xl font-bold text-primary">{pendingIncoming.length}</span>
+          </div>
+        )}
       </div>
 
       <FriendsView 

@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SubjectForm } from '@/components/SubjectForm'
 import { DeleteButton } from '@/components/DeleteButton'
+import { LiveCountdown } from '@/components/LiveCountdown'
 import { format, differenceInDays, startOfDay } from 'date-fns'
 
-const EXAM_TYPE_META: Record<string, { label: string; emoji: string; color: string }> = {
-  midterm:    { label: 'Mid-Term',   emoji: '📘', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  final:      { label: 'Final',      emoji: '🎯', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  quiz:       { label: 'Quiz',       emoji: '⚡', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  assignment: { label: 'Assignment', emoji: '📝', color: 'bg-green-50 text-green-700 border-green-200' },
-  other:      { label: 'Other',      emoji: '📌', color: 'bg-gray-50 text-gray-700 border-gray-200' },
+const EXAM_TYPE_META: Record<string, { label: string; emoji: string; color: string; darkColor: string }> = {
+  midterm:    { label: 'Mid-Term',   emoji: '📘', color: 'bg-blue-50 text-blue-700 border-blue-200', darkColor: 'dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30' },
+  final:      { label: 'Final',      emoji: '🎯', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', darkColor: 'dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/30' },
+  quiz:       { label: 'Quiz',       emoji: '⚡', color: 'bg-amber-50 text-amber-700 border-amber-200', darkColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30' },
+  assignment: { label: 'Assignment', emoji: '📝', color: 'bg-green-50 text-green-700 border-green-200', darkColor: 'dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30' },
+  other:      { label: 'Other',      emoji: '📌', color: 'bg-gray-50 text-gray-700 border-gray-200', darkColor: 'dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/30' },
 }
 
 export default async function EditSubjectPage(props: { params: Promise<{ id: string }> }) {
@@ -42,16 +43,16 @@ export default async function EditSubjectPage(props: { params: Promise<{ id: str
       <div className="flex justify-between items-center">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${typeMeta.color}`}>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${typeMeta.color} ${typeMeta.darkColor}`}>
               {typeMeta.emoji} {typeMeta.label}
             </span>
           </div>
-          <h1 className="text-3xl font-extrabold text-gray-900">Edit Subject</h1>
-          <p className="text-gray-500 mt-1 line-clamp-1">{subject.name}</p>
+          <h1 className="text-3xl font-extrabold text-foreground">Edit Subject</h1>
+          <p className="text-muted dark:text-gray-400 mt-1 line-clamp-1">{subject.name}</p>
         </div>
         <Link
           href="/dashboard"
-          className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl transition-all"
+          className="text-sm text-muted dark:text-gray-400 hover:text-foreground flex items-center gap-1.5 btn-secondary !px-4 !py-2 !rounded-xl"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -61,34 +62,25 @@ export default async function EditSubjectPage(props: { params: Promise<{ id: str
       </div>
 
       {/* Status Banner */}
-      {daysLeft >= 0 && (
-        <div className={`rounded-2xl p-4 flex items-center gap-4 border ${
-          daysLeft <= 1 ? 'bg-red-50 border-red-200' :
-          daysLeft <= 6 ? 'bg-amber-50 border-amber-200' :
-          'bg-green-50 border-green-200'
-        }`}>
-          <div className={`text-3xl ${daysLeft <= 1 ? 'animate-pulse' : ''}`}>
-            {daysLeft === 0 ? '🚨' : daysLeft === 1 ? '⚠️' : daysLeft <= 6 ? '⏳' : '✅'}
-          </div>
-          <div>
-            <p className={`font-bold text-sm ${daysLeft <= 1 ? 'text-red-700' : daysLeft <= 6 ? 'text-amber-700' : 'text-green-700'}`}>
-              {daysLeft === 0 ? 'Exam is TODAY!' : daysLeft === 1 ? 'Exam is TOMORROW!' : `${daysLeft} days until exam`}
-            </p>
-            <p className={`text-xs ${daysLeft <= 1 ? 'text-red-600' : daysLeft <= 6 ? 'text-amber-600' : 'text-green-600'}`}>
-              {format(examDate, 'EEEE, MMMM d, yyyy')}
-            </p>
-          </div>
-          {topics.length > 0 && (
-            <div className="ml-auto text-right">
-              <p className="text-sm font-bold text-gray-700">{topics.length} Topics</p>
-              <p className="text-xs text-gray-500">{topics.reduce((acc: number, t: any) => acc + (t.subtopics?.length || 0), 0)} Subtopics</p>
+      <div className="flex flex-col md:flex-row gap-6">
+        <LiveCountdown targetDateStr={subject.exam_date} />
+        
+        <div className="flex-1 rounded-xl p-5 border shadow-sm bg-card flex flex-col justify-center">
+          <div className="grid grid-cols-2 gap-4 divide-x divide-border">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Topics</p>
+              <p className="text-2xl font-bold">{topics.length} <span className="text-sm font-normal text-muted-foreground">Main</span></p>
             </div>
-          )}
+            <div className="pl-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Subtopics</p>
+              <p className="text-2xl font-bold">{topics.reduce((acc: number, t: any) => acc + (t.subtopics?.length || 0), 0)} <span className="text-sm font-normal text-muted-foreground">Total</span></p>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Form Card */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="glass-card overflow-hidden">
         <div className="h-1.5 gradient-primary" />
         <div className="p-8">
           <SubjectForm

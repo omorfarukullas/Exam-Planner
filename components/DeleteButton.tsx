@@ -9,7 +9,7 @@ export function DeleteButton({ action }: { action: () => void }) {
     <button
       type="button"
       disabled={isPending}
-      className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white rounded-2xl font-semibold text-base transition-all disabled:opacity-50"
+      className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3.5 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-600 hover:text-white dark:hover:bg-red-600 dark:hover:text-white rounded-2xl font-semibold text-base transition-all disabled:opacity-50"
       onClick={() => {
         if (confirm('Are you sure you want to delete this subject? This action cannot be undone.')) {
           startTransition(() => {

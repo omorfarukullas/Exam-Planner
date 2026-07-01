@@ -10,12 +10,10 @@ export default async function MessagesPage() {
     redirect('/login')
   }
 
-  // Fetch accepted friends to use as conversations
+  // Fetch all accepted friends
   const { data: friendships } = await supabase
     .from('friendships')
     .select(`
-      id,
-      status,
       user_id,
       friend_id,
       sender:profiles!user_id(id, full_name, avatar_url),
@@ -37,11 +35,38 @@ export default async function MessagesPage() {
     }
   })
 
-  // We will let the client component handle fetching the actual messages for the active conversation.
+  // Fetch initial messages with related profiles
+  const { data: initialMessages } = await supabase
+    .from('messages')
+    .select(`
+      id,
+      sender_id,
+      receiver_id,
+      content,
+      file_url,
+      file_type,
+      file_name,
+      created_at,
+      sender:profiles!sender_id(id, full_name, avatar_url)
+    `)
+    .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  const messages = (initialMessages || []).reverse().map(msg => ({
+    ...msg,
+    sender: Array.isArray(msg.sender) ? msg.sender[0] : msg.sender
+  }))
 
   return (
-    <div className="h-[calc(100vh-8rem)]">
-      <MessagesView currentUserId={user.id} friends={friends} />
+    <div className="max-w-5xl mx-auto h-[calc(100vh-6rem)] flex flex-col pb-4">
+      <div className="flex-1 min-h-0 relative z-10 card-simple overflow-hidden flex shadow-sm">
+        <MessagesView 
+          currentUserId={user.id} 
+          friends={friends} 
+          initialMessages={messages} 
+        />
+      </div>
     </div>
   )
 }
