@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import { format, differenceInDays, startOfDay } from 'date-fns'
 import { calculateStreak } from '@/utils/streaks'
+import { LiveCountdown } from '@/components/LiveCountdown'
 
 const EXAM_TYPE_META: Record<string, { label: string; emoji: string; color: string }> = {
   midterm:    { label: 'Mid-Term',   emoji: '📘', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -55,8 +56,7 @@ export default async function DashboardPage() {
 
   let friendSubjects: any[] = []
   if (friendIds.length > 0) {
-    // RLS will ensure we only get matching subjects
-    const { data } = await supabase.from('subjects').select('*').in('user_id', friendIds)
+    const { data } = await supabase.rpc('get_friend_subjects', { friend_ids: friendIds })
     if (data) friendSubjects = data
   }
 
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
           const sharedBy = friendSubjects.filter(fs => fs.name.toLowerCase() === subject.name.toLowerCase())
 
           return (
-            <Link href={`/dashboard/edit/${subject.id}`} key={subject.id} className="block group">
+            <div key={subject.id} className="block group">
               <div className={`relative h-full bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 card-hover ${isPast ? 'opacity-60' : ''}`}>
                 {/* Accent stripe */}
                 <div className={`h-1.5 w-full bg-gradient-to-r ${cardAccent}`} />
@@ -178,13 +178,15 @@ export default async function DashboardPage() {
                     </span>
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badgeBg}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-                      {statusText}
+                      <LiveCountdown targetDate={subject.exam_date} />
                     </span>
                   </div>
 
                   {/* Subject name */}
                   <h3 className="font-bold text-gray-900 text-base leading-snug line-clamp-2 mb-3" title={subject.name}>
-                    {subject.name}
+                    <Link href={`/dashboard/edit/${subject.id}`} className="hover:text-indigo-600 transition-colors">
+                      {subject.name}
+                    </Link>
                   </h3>
 
                   {/* Info rows */}
@@ -259,7 +261,7 @@ export default async function DashboardPage() {
                         </div>
                         <Link
                           href={`/dashboard/plan/${subject.id}`}
-                          className="shrink-0 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-xl transition-all"
+                          className="shrink-0 relative z-10 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-xl transition-all"
                         >
                           View Plan ✨
                         </Link>
@@ -270,12 +272,12 @@ export default async function DashboardPage() {
 
                 {/* Hover overlay */}
                 <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all rounded-3xl pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <Link href={`/dashboard/edit/${subject.id}`} className="text-xs font-semibold text-indigo-600 bg-white border border-indigo-200 px-3 py-1 rounded-full shadow-sm pointer-events-auto">
+                  <Link href={`/dashboard/edit/${subject.id}`} className="text-xs font-semibold text-indigo-600 bg-white border border-indigo-200 px-3 py-1 rounded-full shadow-sm pointer-events-auto hover:bg-indigo-50 transition-colors">
                     Edit Subject
                   </Link>
                 </div>
               </div>
-            </Link>
+            </div>
           )
         })}
       </div>

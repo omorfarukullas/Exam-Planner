@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'react-hot-toast'
 import { searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend } from './actions'
 
 type Friend = {
@@ -39,21 +40,40 @@ export function FriendsView({ currentUserId, friends, pendingIncoming, pendingOu
   }
 
   const handleSendRequest = async (id: string) => {
-    await sendFriendRequest(id)
-    alert('Friend request sent!')
+    try {
+      await sendFriendRequest(id)
+      toast.success('Friend request sent!')
+    } catch {
+      toast.error('Failed to send request.')
+    }
   }
 
   const handleAccept = async (friendshipId: string) => {
-    await acceptFriendRequest(friendshipId)
+    try {
+      await acceptFriendRequest(friendshipId)
+      toast.success('Friend request accepted!')
+    } catch {
+      toast.error('Failed to accept request.')
+    }
   }
 
   const handleDecline = async (friendshipId: string) => {
-    await declineFriendRequest(friendshipId)
+    try {
+      await declineFriendRequest(friendshipId)
+      toast.success('Friend request declined.')
+    } catch {
+      toast.error('Failed to decline request.')
+    }
   }
 
   const handleRemove = async (friendshipId: string) => {
     if (confirm('Are you sure you want to remove this friend?')) {
-      await removeFriend(friendshipId)
+      try {
+        await removeFriend(friendshipId)
+        toast.success('Friend removed.')
+      } catch {
+        toast.error('Failed to remove friend.')
+      }
     }
   }
 

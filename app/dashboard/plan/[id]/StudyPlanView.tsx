@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'react-hot-toast'
 import { togglePlanItem, addManualPlanItem, deletePlanItem } from './actions'
 import { format, parseISO, isToday, isPast, isFuture } from 'date-fns'
 
@@ -11,6 +12,7 @@ interface PlanItem {
   estimated_minutes: number
   priority: 'high' | 'medium' | 'low'
   completed: boolean
+  concept_summary?: string
 }
 
 interface DayGroup {
@@ -31,6 +33,7 @@ function PlanItemRow({ item, subjectId, onOptimisticToggle }: {
 }) {
   const [isPending, startTransition] = useTransition()
   const [deleting, setDeleting] = useState(false)
+  const [showBrainstorm, setShowBrainstorm] = useState(false)
   const priority = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.medium
 
   const handleToggle = () => {
@@ -40,7 +43,15 @@ function PlanItemRow({ item, subjectId, onOptimisticToggle }: {
 
   const handleDelete = () => {
     setDeleting(true)
-    startTransition(() => deletePlanItem(item.id, subjectId))
+    startTransition(async () => {
+      try {
+        await deletePlanItem(item.id, subjectId)
+        toast.success('Session removed.')
+      } catch {
+        toast.error('Failed to remove session.')
+        setDeleting(false)
+      }
+    })
   }
 
   return (
@@ -83,7 +94,23 @@ function PlanItemRow({ item, subjectId, onOptimisticToggle }: {
             </svg>
             {item.estimated_minutes} min
           </span>
+          {item.concept_summary && (
+            <button
+              type="button"
+              onClick={() => setShowBrainstorm(!showBrainstorm)}
+              className="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1"
+            >
+              💡 Brainstorm {showBrainstorm ? '▲' : '▼'}
+            </button>
+          )}
         </div>
+
+        {showBrainstorm && item.concept_summary && (
+          <div className="mt-3 p-3.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50 text-sm text-indigo-900 leading-relaxed shadow-sm">
+            <span className="font-bold text-indigo-700 block mb-1">🧠 Pre-study Concept Breakdown:</span>
+            {item.concept_summary}
+          </div>
+        )}
       </div>
 
       {/* Delete */}
@@ -109,8 +136,13 @@ function ManualEntryForm({ subjectId, onClose }: { subjectId: string; onClose: (
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
-      await addManualPlanItem(subjectId, fd)
-      onClose()
+      try {
+        await addManualPlanItem(subjectId, fd)
+        toast.success('Session added!')
+        onClose()
+      } catch {
+        toast.error('Failed to add session.')
+      }
     })
   }
 
@@ -171,15 +203,11 @@ interface StudyPlanViewProps {
 export function StudyPlanView({ subjectId, subjectName, examDate, hasMissedSessions, initialPlan }: StudyPlanViewProps) {
   const [plan, setPlan] = useState<PlanItem[]>(initialPlan)
   const [generating, setGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [showReshuffle, setShowReshuffle] = useState(hasMissedSessions)
 
   const generatePlan = async (isReshuffle = false) => {
     setGenerating(true)
-    setError(null)
-    setSuccess(null)
 
     try {
       const res = await fetch('/api/generate-plan', {
@@ -190,15 +218,15 @@ export function StudyPlanView({ subjectId, subjectName, examDate, hasMissedSessi
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Something went wrong. Please try again.')
+        toast.error(data.error || 'Something went wrong. Please try again.')
       } else {
-        setSuccess(`✅ ${isReshuffle ? 'Plan reshuffled' : 'Plan generated'} with ${data.itemCount} study sessions!`)
+        toast.success(isReshuffle ? 'Plan reshuffled!' : `Generated ${data.itemCount} sessions!`)
         setShowReshuffle(false)
         // Reload the page to get fresh data
         window.location.reload()
       }
     } catch {
-      setError('Network error. Please check your connection and try again.')
+      toast.error('Network error. Please check your connection and try again.')
     } finally {
       setGenerating(false)
     }
@@ -246,33 +274,6 @@ export function StudyPlanView({ subjectId, subjectName, examDate, hasMissedSessi
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Error Banner */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-start gap-3">
-          <div className="text-2xl">❌</div>
-          <div className="flex-1">
-            <p className="text-red-800 text-sm font-semibold">AI Plan Generation Failed</p>
-            <p className="text-red-600 text-xs mt-1">{error}</p>
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => generatePlan(false)} className="btn-primary text-xs px-4 py-2 rounded-xl">
-                Retry AI Generation
-              </button>
-              <button onClick={() => { setError(null); setShowManualEntry(true) }} className="text-xs text-red-600 hover:text-red-800 underline">
-                Add sessions manually instead
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Banner */}
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
-          <span className="text-xl">🎉</span>
-          <p className="text-green-800 text-sm font-medium">{success}</p>
         </div>
       )}
 
@@ -355,7 +356,7 @@ export function StudyPlanView({ subjectId, subjectName, examDate, hasMissedSessi
       )}
 
       {/* Empty State */}
-      {!generating && plan.length === 0 && !error && (
+      {!generating && plan.length === 0 && (
         <div className="border-2 border-dashed border-indigo-200 rounded-3xl p-14 text-center">
           <div className="text-5xl mb-4">🤖</div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">No study plan yet</h3>

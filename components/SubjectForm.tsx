@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { toast } from 'react-hot-toast'
 
 export interface Subtopic {
   id: string
@@ -90,7 +91,9 @@ export function SubjectForm({ action, defaultValues, submitLabel = 'Save Subject
     fd.set('topicsJson', JSON.stringify(topics))
     try {
       await action(fd)
+      toast.success('Subject saved successfully!')
     } catch {
+      toast.error('Failed to save subject.')
       setIsSubmitting(false)
     }
   }

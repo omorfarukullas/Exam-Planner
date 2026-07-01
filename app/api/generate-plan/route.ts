@@ -7,6 +7,7 @@ export interface StudyPlanItem {
   topic: string
   estimated_minutes: number
   priority: 'high' | 'medium' | 'low'
+  concept_summary?: string
 }
 
 function buildGroqPrompt(params: {
@@ -44,16 +45,17 @@ ${topicList}
 
 RULES (MUST FOLLOW):
 1. Output ONLY a raw JSON array. No markdown, no explanation, no preamble, no code blocks.
-2. Each object must have exactly these keys: "day_date" (YYYY-MM-DD), "topic" (string), "estimated_minutes" (integer), "priority" ("high", "medium", or "low")
-3. Daily total estimated_minutes must NOT exceed ${dailyMinutes}
-4. Spread topics so earlier days cover foundational content (low/medium priority), later days focus on harder topics and revision (high priority)
-5. Leave the last 1-2 days before the exam for full revision (high priority)
-6. If a topic is complex, split it across multiple days with clear subtopic names
-7. Do not schedule anything on ${examDate} (exam day)
-8. Start scheduling from TODAY: ${format(new Date(), 'yyyy-MM-dd')}
+2. Each object must have exactly these keys: "day_date" (YYYY-MM-DD), "topic" (string), "estimated_minutes" (integer), "priority" ("high", "medium", or "low"), and "concept_summary" (string).
+3. The "concept_summary" must contain a proper explanation, basic concepts breakdown, and a quick brainstorm to help the student easily understand the basics before starting the topic in detail. Keep it highly digestible (2-3 sentences).
+4. Daily total estimated_minutes must NOT exceed ${dailyMinutes}
+5. Spread topics so earlier days cover foundational content (low/medium priority), later days focus on harder topics and revision (high priority)
+6. Leave the last 1-2 days before the exam for full revision (high priority)
+7. If a topic is complex, split it across multiple days with clear subtopic names
+8. Do not schedule anything on ${examDate} (exam day)
+9. Start scheduling from TODAY: ${format(new Date(), 'yyyy-MM-dd')}
 
 OUTPUT FORMAT EXAMPLE (follow exactly):
-[{"day_date":"2025-01-10","topic":"Introduction to Calculus - Limits","estimated_minutes":60,"priority":"low"},{"day_date":"2025-01-11","topic":"Derivatives - Basic Rules","estimated_minutes":90,"priority":"medium"}]
+[{"day_date":"2025-01-10","topic":"Introduction to Calculus - Limits","estimated_minutes":60,"priority":"low","concept_summary":"Limits describe the value that a function approaches as the input approaches some value. Think of it as approaching a destination without ever arriving. Key brainstorming: infinity, asymptotes, and continuity."}]
 
 IMPORTANT: Output NOTHING except the JSON array. Start your response with [ and end with ].`
 }
@@ -178,7 +180,8 @@ export async function POST(request: NextRequest) {
         item.day_date && typeof item.day_date === 'string' &&
         item.topic && typeof item.topic === 'string' &&
         typeof item.estimated_minutes === 'number' &&
-        ['high', 'medium', 'low'].includes(item.priority)
+        ['high', 'medium', 'low'].includes(item.priority) &&
+        item.concept_summary && typeof item.concept_summary === 'string'
       )
 
       if (planItems.length === 0) throw new Error('No valid items after filtering')
@@ -199,6 +202,7 @@ export async function POST(request: NextRequest) {
       topic: item.topic,
       estimated_minutes: item.estimated_minutes,
       priority: item.priority,
+      concept_summary: item.concept_summary,
       completed: false,
     }))
 

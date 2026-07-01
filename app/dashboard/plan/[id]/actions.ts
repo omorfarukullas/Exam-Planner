@@ -18,8 +18,8 @@ export async function togglePlanItem(id: string, completed: boolean, subjectId: 
     .select('day_date, estimated_minutes')
     .single()
 
-  // Log session if completed
-  if (completed && item) {
+  // Log or un-log session
+  if (item) {
     const date = item.day_date
 
     // Check for existing session on that date
@@ -31,20 +31,37 @@ export async function togglePlanItem(id: string, completed: boolean, subjectId: 
       .eq('date', date)
       .single()
 
-    if (existingSession) {
-      await supabase
-        .from('study_sessions')
-        .update({ minutes_logged: existingSession.minutes_logged + item.estimated_minutes })
-        .eq('id', existingSession.id)
+    if (completed) {
+      if (existingSession) {
+        await supabase
+          .from('study_sessions')
+          .update({ minutes_logged: existingSession.minutes_logged + item.estimated_minutes })
+          .eq('id', existingSession.id)
+      } else {
+        await supabase
+          .from('study_sessions')
+          .insert({
+            user_id: user.id,
+            subject_id: subjectId,
+            date: date,
+            minutes_logged: item.estimated_minutes
+          })
+      }
     } else {
-      await supabase
-        .from('study_sessions')
-        .insert({
-          user_id: user.id,
-          subject_id: subjectId,
-          date: date,
-          minutes_logged: item.estimated_minutes
-        })
+      // User unchecked the item
+      if (existingSession) {
+        const newMinutes = existingSession.minutes_logged - item.estimated_minutes
+        if (newMinutes <= 0) {
+          // Delete the session if no minutes are left
+          await supabase.from('study_sessions').delete().eq('id', existingSession.id)
+        } else {
+          // Update with fewer minutes
+          await supabase
+            .from('study_sessions')
+            .update({ minutes_logged: newMinutes })
+            .eq('id', existingSession.id)
+        }
+      }
     }
   }
 
